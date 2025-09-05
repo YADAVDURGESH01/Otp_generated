@@ -1,17 +1,731 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="stylesheet" href="style.css">
-    <title>Otp Generated</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        
+        .fade-in { animation: fadeIn 0.6s ease-out; }
+        .pulse-animation { animation: pulse 2s ease-in-out infinite; }
+        .slide-in { animation: slideIn 0.5s ease-out; }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+        }
+        
+        .nav-item {
+            transition: all 0.3s ease;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .data-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .trend-up { color: #10b981; }
+        .trend-down { color: #ef4444; }
+        
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .filter-badge {
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+        }
+        
+        .export-btn {
+            background: linear-gradient(45deg, #10b981, #059669);
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+        }
+    </style>
 </head>
-<body>
-    <div class="wrapper">
-        <div id="h1" >One Time Pass</div>
-        <button type="button" id="btn">OTP Genrator</button>
-        <div id="box"></div>
-        <button id="btn"> Verify</button>
-        <h1>Durgesh</h1>
+<body class="bg-gray-100 font-sans overflow-hidden">
+    <div class="flex h-screen w-screen fixed inset-0">
+        <!-- Sidebar -->
+        <div class="sidebar w-64 h-full text-white p-6 slide-in flex flex-col">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold flex items-center">
+                    📊 Analytics Pro
+                </h1>
+                <p class="text-gray-300 text-sm mt-2">Data Intelligence Platform</p>
+            </div>
+            
+            <nav class="space-y-2 flex-1 overflow-y-auto">
+                <div class="nav-item active p-3 rounded-lg cursor-pointer" data-section="overview">
+                    <span class="flex items-center">
+                        📈 Overview
+                    </span>
+                </div>
+                <div class="nav-item p-3 rounded-lg cursor-pointer" data-section="sales">
+                    <span class="flex items-center">
+                        💰 Sales Analytics
+                    </span>
+                </div>
+                <div class="nav-item p-3 rounded-lg cursor-pointer" data-section="users">
+                    <span class="flex items-center">
+                        👥 User Insights
+                    </span>
+                </div>
+                <div class="nav-item p-3 rounded-lg cursor-pointer" data-section="performance">
+                    <span class="flex items-center">
+                        ⚡ Performance
+                    </span>
+                </div>
+                <div class="nav-item p-3 rounded-lg cursor-pointer" data-section="reports">
+                    <span class="flex items-center">
+                        📋 Reports
+                    </span>
+                </div>
+            </nav>
+            
+            <div class="mt-8 p-4 bg-white/10 rounded-lg">
+                <h3 class="font-semibold mb-2">🎯 Quick Actions</h3>
+                <div class="space-y-2">
+                    <button id="refreshData" class="refresh-btn w-full text-white py-2 px-3 rounded text-sm hover:opacity-90 transition-opacity">
+                        🔄 Refresh Data
+                    </button>
+                    <button id="exportData" class="export-btn w-full text-white py-2 px-3 rounded text-sm hover:opacity-90 transition-opacity">
+                        📥 Export Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 h-full overflow-hidden flex flex-col">
+            <!-- Header -->
+            <header class="bg-white shadow-sm p-6 border-b flex-shrink-0">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800" id="sectionTitle">Dashboard Overview</h2>
+                        <p class="text-gray-600 mt-1" id="sectionSubtitle">Real-time analytics and insights</p>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Date Range Filter -->
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm font-medium text-gray-700">Date Range:</label>
+                            <select id="dateRange" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                                <option value="365">Last year</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Live Status -->
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 bg-green-500 rounded-full pulse-animation"></div>
+                            <span class="text-sm text-gray-600">Live Data</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <main class="p-6 flex-1 overflow-y-auto">
+                <!-- Key Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="metric-card text-white p-6 rounded-xl fade-in">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-white/80 text-sm">Total Revenue</p>
+                                <p class="text-3xl font-bold" id="totalRevenue">$847,392</p>
+                                <p class="text-sm mt-2">
+                                    <span class="trend-up">↗ +12.5%</span> vs last month
+                                </p>
+                            </div>
+                            <div class="text-4xl opacity-80">💰</div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card text-white p-6 rounded-xl fade-in" style="animation-delay: 0.1s;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-white/80 text-sm">Active Users</p>
+                                <p class="text-3xl font-bold" id="activeUsers">24,847</p>
+                                <p class="text-sm mt-2">
+                                    <span class="trend-up">↗ +8.2%</span> vs last month
+                                </p>
+                            </div>
+                            <div class="text-4xl opacity-80">👥</div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card text-white p-6 rounded-xl fade-in" style="animation-delay: 0.2s;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-white/80 text-sm">Conversion Rate</p>
+                                <p class="text-3xl font-bold" id="conversionRate">3.24%</p>
+                                <p class="text-sm mt-2">
+                                    <span class="trend-down">↘ -2.1%</span> vs last month
+                                </p>
+                            </div>
+                            <div class="text-4xl opacity-80">📈</div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-card text-white p-6 rounded-xl fade-in" style="animation-delay: 0.3s;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-white/80 text-sm">Avg. Order Value</p>
+                                <p class="text-3xl font-bold" id="avgOrderValue">$156.78</p>
+                                <p class="text-sm mt-2">
+                                    <span class="trend-up">↗ +5.7%</span> vs last month
+                                </p>
+                            </div>
+                            <div class="text-4xl opacity-80">🛒</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- Revenue Chart -->
+                    <div class="chart-container p-6 rounded-xl shadow-lg fade-in h-80">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800">Revenue Trend</h3>
+                            <div class="flex space-x-2">
+                                <button class="filter-badge text-white px-3 py-1 rounded-full text-sm">Daily</button>
+                                <button class="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm">Weekly</button>
+                                <button class="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm">Monthly</button>
+                            </div>
+                        </div>
+                        <div class="h-56">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- User Analytics Chart -->
+                    <div class="chart-container p-6 rounded-xl shadow-lg fade-in h-80">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800">User Analytics</h3>
+                            <select class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                <option>New vs Returning</option>
+                                <option>Device Type</option>
+                                <option>Traffic Source</option>
+                            </select>
+                        </div>
+                        <div class="h-56">
+                            <canvas id="userChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Sales by Category -->
+                    <div class="chart-container p-6 rounded-xl shadow-lg fade-in h-80">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Sales by Category</h3>
+                        <div class="h-56">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Geographic Data -->
+                    <div class="chart-container p-6 rounded-xl shadow-lg fade-in h-80">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Top Regions</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">🇺🇸 United States</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-500 h-2 rounded-full" style="width: 85%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-600">85%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">🇬🇧 United Kingdom</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: 65%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-600">65%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">🇨🇦 Canada</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-yellow-500 h-2 rounded-full" style="width: 45%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-600">45%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">🇦🇺 Australia</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-purple-500 h-2 rounded-full" style="width: 35%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-600">35%</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-700">🇩🇪 Germany</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-red-500 h-2 rounded-full" style="width: 28%"></div>
+                                    </div>
+                                    <span class="text-sm text-gray-600">28%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Performance Metrics -->
+                    <div class="chart-container p-6 rounded-xl shadow-lg fade-in h-80">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Performance Metrics</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Page Load Speed</span>
+                                    <span class="trend-up">2.3s</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 78%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Server Response</span>
+                                    <span class="trend-up">145ms</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: 92%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Uptime</span>
+                                    <span class="trend-up">99.9%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 99%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Error Rate</span>
+                                    <span class="trend-down">0.1%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-red-500 h-2 rounded-full" style="width: 5%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="chart-container p-6 rounded-xl shadow-lg fade-in">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Recent Transactions</h3>
+                        <div class="flex space-x-2">
+                            <input type="text" placeholder="Search transactions..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <button class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600">
+                                🔍 Search
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-table overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="text-left p-3 font-semibold">Transaction ID</th>
+                                    <th class="text-left p-3 font-semibold">Customer</th>
+                                    <th class="text-left p-3 font-semibold">Amount</th>
+                                    <th class="text-left p-3 font-semibold">Status</th>
+                                    <th class="text-left p-3 font-semibold">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionTable">
+                                <!-- Table rows will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
-    <script src="main.js"></script>
-</body>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-700">Updating dashboard data...</p>
+        </div>
+    </div>
+
+    <script>
+        // Sample data and chart configurations
+        let charts = {};
+        let dashboardData = {
+            revenue: [65000, 72000, 68000, 78000, 85000, 92000, 88000],
+            users: [1200, 1350, 1180, 1420, 1580, 1650, 1720],
+            categories: [35, 25, 20, 15, 5],
+            categoryLabels: ['Electronics', 'Clothing', 'Books', 'Home & Garden', 'Sports']
+        };
+
+        // Initialize charts
+        function initializeCharts() {
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            charts.revenue = new Chart(revenueCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: dashboardData.revenue,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + (value / 1000) + 'K';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // User Chart
+            const userCtx = document.getElementById('userChart').getContext('2d');
+            charts.users = new Chart(userCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'New Users',
+                        data: dashboardData.users,
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderColor: '#10b981',
+                        borderWidth: 1
+                    }, {
+                        label: 'Returning Users',
+                        data: [800, 950, 720, 1020, 1180, 1250, 1320],
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Category Chart
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            charts.category = new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: dashboardData.categoryLabels,
+                    datasets: [{
+                        data: dashboardData.categories,
+                        backgroundColor: [
+                            '#3b82f6',
+                            '#10b981',
+                            '#f59e0b',
+                            '#ef4444',
+                            '#8b5cf6'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // Generate sample transaction data
+        function generateTransactionData() {
+            const customers = ['John Smith', 'Sarah Johnson', 'Mike Davis', 'Emily Brown', 'David Wilson', 'Lisa Garcia', 'Tom Anderson', 'Maria Rodriguez'];
+            const statuses = ['Completed', 'Pending', 'Failed', 'Refunded'];
+            const statusColors = {
+                'Completed': 'bg-green-100 text-green-800',
+                'Pending': 'bg-yellow-100 text-yellow-800',
+                'Failed': 'bg-red-100 text-red-800',
+                'Refunded': 'bg-gray-100 text-gray-800'
+            };
+
+            const tbody = document.getElementById('transactionTable');
+            tbody.innerHTML = '';
+
+            for (let i = 0; i < 15; i++) {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+                
+                const transactionId = 'TXN' + (10000 + i).toString();
+                const customer = customers[Math.floor(Math.random() * customers.length)];
+                const amount = '$' + (Math.random() * 500 + 50).toFixed(2);
+                const status = statuses[Math.floor(Math.random() * statuses.length)];
+                const date = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toLocaleDateString();
+
+                row.innerHTML = `
+                    <td class="p-3 font-mono text-blue-600">${transactionId}</td>
+                    <td class="p-3">${customer}</td>
+                    <td class="p-3 font-semibold">${amount}</td>
+                    <td class="p-3">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}">
+                            ${status}
+                        </span>
+                    </td>
+                    <td class="p-3 text-gray-600">${date}</td>
+                `;
+                
+                tbody.appendChild(row);
+            }
+        }
+
+        // Update metrics with animation
+        function updateMetrics() {
+            const metrics = {
+                totalRevenue: Math.floor(Math.random() * 100000) + 800000,
+                activeUsers: Math.floor(Math.random() * 5000) + 20000,
+                conversionRate: (Math.random() * 2 + 2).toFixed(2),
+                avgOrderValue: (Math.random() * 50 + 130).toFixed(2)
+            };
+
+            // Animate number changes
+            Object.keys(metrics).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        if (key === 'totalRevenue') {
+                            element.textContent = '$' + metrics[key].toLocaleString();
+                        } else if (key === 'activeUsers') {
+                            element.textContent = metrics[key].toLocaleString();
+                        } else if (key === 'conversionRate') {
+                            element.textContent = metrics[key] + '%';
+                        } else if (key === 'avgOrderValue') {
+                            element.textContent = '$' + metrics[key];
+                        }
+                        element.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            });
+        }
+
+        // Refresh dashboard data
+        function refreshDashboard() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden');
+
+            setTimeout(() => {
+                // Update chart data
+                dashboardData.revenue = dashboardData.revenue.map(() => 
+                    Math.floor(Math.random() * 30000) + 60000
+                );
+                dashboardData.users = dashboardData.users.map(() => 
+                    Math.floor(Math.random() * 800) + 1000
+                );
+
+                // Update charts
+                charts.revenue.data.datasets[0].data = dashboardData.revenue;
+                charts.revenue.update('active');
+
+                charts.users.data.datasets[0].data = dashboardData.users;
+                charts.users.data.datasets[1].data = dashboardData.users.map(val => 
+                    Math.floor(val * 0.7)
+                );
+                charts.users.update('active');
+
+                // Update metrics and table
+                updateMetrics();
+                generateTransactionData();
+
+                overlay.classList.add('hidden');
+            }, 1500);
+        }
+
+        // Export functionality
+        function exportData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                metrics: {
+                    revenue: document.getElementById('totalRevenue').textContent,
+                    users: document.getElementById('activeUsers').textContent,
+                    conversion: document.getElementById('conversionRate').textContent,
+                    avgOrder: document.getElementById('avgOrderValue').textContent
+                },
+                chartData: dashboardData
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dashboard-report-' + new Date().toISOString().split('T')[0] + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Show success message
+            const button = document.getElementById('exportData');
+            const originalText = button.textContent;
+            button.textContent = '✅ Exported!';
+            button.style.background = 'linear-gradient(45deg, #10b981, #059669)';
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = 'linear-gradient(45deg, #10b981, #059669)';
+            }, 2000);
+        }
+
+        // Navigation handling
+        function setupNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    item.classList.add('active');
+                    
+                    const section = item.dataset.section;
+                    updateSectionTitle(section);
+                });
+            });
+        }
+
+        function updateSectionTitle(section) {
+            const titles = {
+                overview: { title: 'Dashboard Overview', subtitle: 'Real-time analytics and insights' },
+                sales: { title: 'Sales Analytics', subtitle: 'Revenue trends and performance metrics' },
+                users: { title: 'User Insights', subtitle: 'User behavior and engagement analysis' },
+                performance: { title: 'Performance Metrics', subtitle: 'System performance and optimization' },
+                reports: { title: 'Reports & Analytics', subtitle: 'Comprehensive data reports' }
+            };
+
+            const titleData = titles[section] || titles.overview;
+            document.getElementById('sectionTitle').textContent = titleData.title;
+            document.getElementById('sectionSubtitle').textContent = titleData.subtitle;
+        }
+
+        // Date range filter
+        function setupDateFilter() {
+            const dateRange = document.getElementById('dateRange');
+            dateRange.addEventListener('change', () => {
+                const days = parseInt(dateRange.value);
+                // Simulate data update based on date range
+                refreshDashboard();
+            });
+        }
+
+        // Auto-refresh functionality
+        function startAutoRefresh() {
+            setInterval(() => {
+                updateMetrics();
+            }, 30000); // Update every 30 seconds
+        }
+
+        // Event listeners
+        document.getElementById('refreshData').addEventListener('click', refreshDashboard);
+        document.getElementById('exportData').addEventListener('click', exportData);
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeCharts();
+            generateTransactionData();
+            setupNavigation();
+            setupDateFilter();
+            startAutoRefresh();
+            
+            // Initial data update
+            setTimeout(updateMetrics, 1000);
+        });
+
+        // Responsive chart resize
+        window.addEventListener('resize', () => {
+            Object.values(charts).forEach(chart => {
+                chart.resize();
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97a42b3e86933b34',t:'MTc1NzA1ODk3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
